@@ -5,9 +5,11 @@ from datetime import datetime
 from config import DATABASE_FILE
 
 
-def get_connection():
-    """Create a connection to the RescueMind SQLite database."""
+# =========================================================
+# DATABASE CONNECTION
+# =========================================================
 
+def get_connection():
     connection = sqlite3.connect(
         DATABASE_FILE,
         check_same_thread=False
@@ -18,51 +20,50 @@ def get_connection():
     return connection
 
 
+# =========================================================
+# ID GENERATORS
+# =========================================================
+
 def generate_report_id():
-    """Generate a unique citizen emergency report ID."""
-
-    unique_part = uuid.uuid4().hex[:6].upper()
-
-    return f"RSM-{unique_part}"
+    return f"RSM-{uuid.uuid4().hex[:6].upper()}"
 
 
 def generate_incident_id():
-    """Generate a unique incident ID."""
+    return f"INC-{uuid.uuid4().hex[:6].upper()}"
 
-    unique_part = uuid.uuid4().hex[:6].upper()
 
-    return f"INC-{unique_part}"
-
+# =========================================================
+# DATABASE INITIALIZATION
+# =========================================================
 
 def initialize_database():
-    """Create all RescueMind AI database tables."""
 
     connection = get_connection()
     cursor = connection.cursor()
 
-    # --------------------------------------------------
+    # -----------------------------------------------------
     # USERS
-    # --------------------------------------------------
+    # -----------------------------------------------------
 
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL,
-            email TEXT UNIQUE,
-            role TEXT NOT NULL DEFAULT 'admin',
-            created_at TEXT NOT NULL
+            name TEXT,
+            contact TEXT,
+            role TEXT,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP
         )
     """)
 
-    # --------------------------------------------------
+    # -----------------------------------------------------
     # EMERGENCY REPORTS
-    # --------------------------------------------------
+    # -----------------------------------------------------
 
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS emergency_reports (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            report_id TEXT UNIQUE NOT NULL,
-            description TEXT NOT NULL,
+            report_id TEXT UNIQUE,
+            description TEXT,
             emergency_type TEXT,
             reported_time TEXT,
             submitted_location TEXT,
@@ -75,168 +76,231 @@ def initialize_database():
             evidence_data BLOB,
             processing_status TEXT DEFAULT 'Pending AI Analysis',
             transcription_confidence REAL,
-            created_at TEXT NOT NULL
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP
         )
     """)
 
-    # --------------------------------------------------
+    # -----------------------------------------------------
     # INCIDENTS
-    # --------------------------------------------------
+    # -----------------------------------------------------
 
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS incidents (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            incident_id TEXT UNIQUE NOT NULL,
-            title TEXT NOT NULL,
-            emergency_type TEXT,
+            incident_id TEXT UNIQUE,
+            title TEXT,
             description TEXT,
-            severity TEXT DEFAULT 'Unknown',
+            emergency_type TEXT,
+            severity TEXT,
             status TEXT DEFAULT 'Pending',
+            source_report_id TEXT,
             ai_summary TEXT,
-            human_verified INTEGER DEFAULT 0,
-            created_at TEXT NOT NULL,
-            updated_at TEXT NOT NULL
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            updated_at TEXT DEFAULT CURRENT_TIMESTAMP
         )
     """)
 
-    # --------------------------------------------------
+    # -----------------------------------------------------
     # INCIDENT LOCATIONS
-    # --------------------------------------------------
+    # -----------------------------------------------------
 
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS incident_locations (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            incident_id INTEGER NOT NULL,
-            address TEXT,
-            landmark TEXT,
+            incident_id TEXT,
+            location_name TEXT,
             latitude REAL,
             longitude REAL,
-            confidence REAL,
-            verified INTEGER DEFAULT 0,
-            FOREIGN KEY (incident_id)
-                REFERENCES incidents(id)
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP
         )
     """)
 
-    # --------------------------------------------------
+    # -----------------------------------------------------
     # INCIDENT EVIDENCE
-    # --------------------------------------------------
+    # -----------------------------------------------------
 
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS incident_evidence (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            incident_id INTEGER NOT NULL,
-            evidence_type TEXT,
+            incident_id TEXT,
             file_name TEXT,
-            file_path TEXT,
-            description TEXT,
-            created_at TEXT NOT NULL,
-            FOREIGN KEY (incident_id)
-                REFERENCES incidents(id)
+            file_type TEXT,
+            evidence_data BLOB,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP
         )
     """)
 
-    # --------------------------------------------------
+    # -----------------------------------------------------
     # RESOURCES
-    # --------------------------------------------------
+    # -----------------------------------------------------
 
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS resources (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            resource_id TEXT UNIQUE NOT NULL,
-            name TEXT NOT NULL,
-            resource_type TEXT NOT NULL,
-            capacity INTEGER DEFAULT 0,
-            availability TEXT DEFAULT 'Available',
-            latitude REAL,
-            longitude REAL,
-            location_name TEXT,
-            created_at TEXT NOT NULL
+            resource_name TEXT,
+            resource_type TEXT,
+            quantity INTEGER DEFAULT 0,
+            available_quantity INTEGER DEFAULT 0,
+            location TEXT,
+            status TEXT DEFAULT 'Available',
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP
         )
     """)
 
-    # --------------------------------------------------
+    # -----------------------------------------------------
     # RESOURCE ASSIGNMENTS
-    # --------------------------------------------------
+    # -----------------------------------------------------
 
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS resource_assignments (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            incident_id INTEGER NOT NULL,
-            resource_id INTEGER NOT NULL,
-            status TEXT DEFAULT 'Proposed',
-            reason TEXT,
-            approved_by INTEGER,
-            assigned_at TEXT,
-            FOREIGN KEY (incident_id)
-                REFERENCES incidents(id),
-            FOREIGN KEY (resource_id)
-                REFERENCES resources(id)
+            incident_id TEXT,
+            resource_id INTEGER,
+            quantity INTEGER DEFAULT 1,
+            assigned_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            status TEXT DEFAULT 'Assigned'
         )
     """)
 
-    # --------------------------------------------------
-    # AI AGENT EXECUTIONS
-    # --------------------------------------------------
+    # -----------------------------------------------------
+    # AGENT EXECUTIONS
+    # -----------------------------------------------------
 
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS agent_executions (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            incident_id INTEGER,
-            agent_name TEXT NOT NULL,
-            status TEXT NOT NULL,
-            input_summary TEXT,
-            output_summary TEXT,
+            incident_id TEXT,
+            agent_name TEXT,
+            input_data TEXT,
+            output_data TEXT,
+            status TEXT,
             execution_time REAL,
-            created_at TEXT NOT NULL,
-            FOREIGN KEY (incident_id)
-                REFERENCES incidents(id)
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP
         )
     """)
 
-    # --------------------------------------------------
+    # -----------------------------------------------------
     # INCIDENT HISTORY
-    # --------------------------------------------------
+    # -----------------------------------------------------
 
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS incident_history (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            incident_id INTEGER NOT NULL,
+            incident_id TEXT,
             old_status TEXT,
             new_status TEXT,
             changed_by TEXT,
             notes TEXT,
-            created_at TEXT NOT NULL,
-            FOREIGN KEY (incident_id)
-                REFERENCES incidents(id)
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP
         )
     """)
 
-    # --------------------------------------------------
-    # AUDIT LOG
-    # --------------------------------------------------
+    # -----------------------------------------------------
+    # AUDIT LOGS
+    # -----------------------------------------------------
 
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS audit_logs (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            action TEXT NOT NULL,
+            action TEXT,
             entity_type TEXT,
             entity_id TEXT,
-            performed_by TEXT,
             details TEXT,
-            created_at TEXT NOT NULL
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP
         )
     """)
+
+    # =====================================================
+    # SAFE MIGRATION FOR OLD DATABASES
+    # =====================================================
+
+    cursor.execute("""
+        PRAGMA table_info(emergency_reports)
+    """)
+
+    existing_columns = {
+        row["name"]
+        for row in cursor.fetchall()
+    }
+
+    migration_columns = {
+
+        "report_id":
+            "TEXT",
+
+        "description":
+            "TEXT",
+
+        "emergency_type":
+            "TEXT",
+
+        "reported_time":
+            "TEXT",
+
+        "submitted_location":
+            "TEXT",
+
+        "latitude":
+            "REAL",
+
+        "longitude":
+            "REAL",
+
+        "reporter_name":
+            "TEXT",
+
+        "reporter_contact":
+            "TEXT",
+
+        "evidence_file_name":
+            "TEXT",
+
+        "evidence_file_type":
+            "TEXT",
+
+        "evidence_data":
+            "BLOB",
+
+        "processing_status":
+            "TEXT DEFAULT 'Pending AI Analysis'",
+
+        "transcription_confidence":
+            "REAL",
+
+        "created_at":
+            "TEXT"
+    }
+
+    for column_name, column_type in migration_columns.items():
+
+        if column_name not in existing_columns:
+
+            try:
+                cursor.execute(
+                    f"""
+                    ALTER TABLE emergency_reports
+                    ADD COLUMN {column_name} {column_type}
+                    """
+                )
+            except sqlite3.OperationalError:
+                pass
+
+    # -----------------------------------------------------
+    # SAVE DATABASE
+    # -----------------------------------------------------
 
     connection.commit()
     connection.close()
 
 
+# =========================================================
+# SAVE EMERGENCY REPORT
+# =========================================================
+
 def save_emergency_report(
     description,
     emergency_type,
-    reported_time,
-    location,
+    submitted_location,
     latitude=None,
     longitude=None,
     reporter_name=None,
@@ -244,13 +308,16 @@ def save_emergency_report(
     evidence_file_name=None,
     evidence_file_type=None,
     evidence_data=None,
+    processing_status="Pending AI Analysis",
+    transcription_confidence=None
 ):
-    """Save a new emergency report."""
-
-    report_id = generate_report_id()
 
     connection = get_connection()
     cursor = connection.cursor()
+
+    report_id = generate_report_id()
+
+    reported_time = datetime.now().isoformat()
 
     cursor.execute("""
         INSERT INTO emergency_reports (
@@ -267,7 +334,7 @@ def save_emergency_report(
             evidence_file_type,
             evidence_data,
             processing_status,
-            created_at
+            transcription_confidence
         )
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """, (
@@ -275,7 +342,7 @@ def save_emergency_report(
         description,
         emergency_type,
         reported_time,
-        location,
+        submitted_location,
         latitude,
         longitude,
         reporter_name,
@@ -283,26 +350,21 @@ def save_emergency_report(
         evidence_file_name,
         evidence_file_type,
         evidence_data,
-        "Pending AI Analysis",
-        datetime.utcnow().isoformat(),
+        processing_status,
+        transcription_confidence
     ))
 
     connection.commit()
     connection.close()
 
-    add_audit_log(
-        action="Emergency report submitted",
-        entity_type="emergency_report",
-        entity_id=report_id,
-        performed_by="citizen",
-        details=f"Emergency type: {emergency_type}",
-    )
-
     return report_id
 
 
+# =========================================================
+# GET EMERGENCY REPORTS
+# =========================================================
+
 def get_emergency_reports(limit=100):
-    """Retrieve recent emergency reports."""
 
     connection = get_connection()
     cursor = connection.cursor()
@@ -329,50 +391,79 @@ def get_emergency_reports(limit=100):
         LIMIT ?
     """, (limit,))
 
-    reports = [dict(row) for row in cursor.fetchall()]
+    reports = cursor.fetchall()
 
     connection.close()
 
     return reports
 
 
+# =========================================================
+# DATABASE STATISTICS
+# =========================================================
+
 def get_database_stats():
-    """Return basic database statistics."""
 
     connection = get_connection()
     cursor = connection.cursor()
 
-    tables = [
-        "emergency_reports",
-        "incidents",
-        "resources",
-        "resource_assignments",
-        "agent_executions",
-        "audit_logs",
-    ]
+    # Emergency reports
 
-    stats = {}
+    cursor.execute("""
+        SELECT COUNT(*) AS count
+        FROM emergency_reports
+    """)
 
-    for table in tables:
-        cursor.execute(
-            f"SELECT COUNT(*) FROM {table}"
-        )
+    total_reports = cursor.fetchone()["count"]
 
-        stats[table] = cursor.fetchone()[0]
+    # Incidents
+
+    cursor.execute("""
+        SELECT COUNT(*) AS count
+        FROM incidents
+    """)
+
+    total_incidents = cursor.fetchone()["count"]
+
+    # Resources
+
+    cursor.execute("""
+        SELECT COUNT(*) AS count
+        FROM resources
+    """)
+
+    total_resources = cursor.fetchone()["count"]
+
+    # Pending reports
+
+    cursor.execute("""
+        SELECT COUNT(*) AS count
+        FROM emergency_reports
+        WHERE processing_status = 'Pending AI Analysis'
+    """)
+
+    pending_reports = cursor.fetchone()["count"]
 
     connection.close()
 
-    return stats
+    return {
+        "reports": total_reports,
+        "incidents": total_incidents,
+        "resources": total_resources,
+        "pending": pending_reports
+    }
 
+
+# =========================================================
+# AUDIT LOG
+# =========================================================
 
 def add_audit_log(
     action,
-    entity_type=None,
-    entity_id=None,
-    performed_by="system",
-    details=None,
+    entity_type,
+    entity_id,
+    details=""
 ):
-    """Record an important system action."""
 
     connection = get_connection()
     cursor = connection.cursor()
@@ -382,67 +473,15 @@ def add_audit_log(
             action,
             entity_type,
             entity_id,
-            performed_by,
-            details,
-            created_at
+            details
         )
-        VALUES (?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?)
     """, (
         action,
         entity_type,
         entity_id,
-        performed_by,
-        details,
-        datetime.utcnow().isoformat(),
+        details
     ))
-
-      # --------------------------------------------------
-    # AUDIT LOG
-    # --------------------------------------------------
-
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS audit_logs (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            action TEXT NOT NULL,
-            entity_type TEXT,
-            entity_id TEXT,
-            performed_by TEXT,
-            details TEXT,
-            created_at TEXT NOT NULL
-        )
-    """)
-
-    # --------------------------------------------------
-    # DATABASE MIGRATION
-    # --------------------------------------------------
-
-    cursor.execute(
-        "PRAGMA table_info(emergency_reports)"
-    )
-
-    existing_columns = {
-        row["name"]
-        for row in cursor.fetchall()
-    }
-
-    new_columns = {
-        "evidence_file_name": "TEXT",
-        "evidence_file_type": "TEXT",
-        "evidence_data": "BLOB",
-        "processing_status": "TEXT DEFAULT 'Pending AI Analysis'",
-        "transcription_confidence": "REAL",
-    }
-
-    for column_name, column_type in new_columns.items():
-
-        if column_name not in existing_columns:
-
-            cursor.execute(
-                f"""
-                ALTER TABLE emergency_reports
-                ADD COLUMN {column_name} {column_type}
-                """
-            )
 
     connection.commit()
     connection.close()
