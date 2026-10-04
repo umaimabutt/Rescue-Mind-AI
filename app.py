@@ -1,4 +1,5 @@
 import streamlit as st
+from datetime import datetime
 
 from config import (
     APP_NAME,
@@ -10,13 +11,14 @@ from config import (
 from database import (
     initialize_database,
     get_database_stats,
-    add_audit_log,
+    get_emergency_reports,
+    save_emergency_report,
 )
 
 
-# --------------------------------------------------
+# ==================================================
 # PAGE CONFIGURATION
-# --------------------------------------------------
+# ==================================================
 
 st.set_page_config(
     page_title=APP_NAME,
@@ -26,16 +28,16 @@ st.set_page_config(
 )
 
 
-# --------------------------------------------------
-# DATABASE INITIALIZATION
-# --------------------------------------------------
+# ==================================================
+# DATABASE
+# ==================================================
 
 initialize_database()
 
 
-# --------------------------------------------------
-# CUSTOM CSS
-# --------------------------------------------------
+# ==================================================
+# CSS
+# ==================================================
 
 st.markdown("""
 <style>
@@ -48,13 +50,6 @@ st.markdown("""
     padding-top: 2rem;
 }
 
-.metric-card {
-    background-color: white;
-    padding: 20px;
-    border-radius: 12px;
-    border: 1px solid #e5e7eb;
-}
-
 .header-title {
     font-size: 34px;
     font-weight: 700;
@@ -65,13 +60,21 @@ st.markdown("""
     font-size: 16px;
 }
 
+.report-card {
+    background: white;
+    padding: 18px;
+    border-radius: 12px;
+    border: 1px solid #e5e7eb;
+    margin-bottom: 12px;
+}
+
 </style>
 """, unsafe_allow_html=True)
 
 
-# --------------------------------------------------
+# ==================================================
 # SIDEBAR
-# --------------------------------------------------
+# ==================================================
 
 with st.sidebar:
 
@@ -105,22 +108,24 @@ with st.sidebar:
     )
 
 
-# --------------------------------------------------
+# ==================================================
 # COMMAND CENTER
-# --------------------------------------------------
+# ==================================================
 
 if page == "Command Center":
 
     st.markdown(
-        '<div class="header-title">Emergency Command Center</div>',
-        unsafe_allow_html=True
+        '<div class="header-title">'
+        'Emergency Command Center'
+        '</div>',
+        unsafe_allow_html=True,
     )
 
     st.markdown(
         '<div class="header-subtitle">'
         'Centralized emergency intelligence dashboard'
         '</div>',
-        unsafe_allow_html=True
+        unsafe_allow_html=True,
     )
 
     st.divider()
@@ -132,133 +137,285 @@ if page == "Command Center":
     with col1:
         st.metric(
             "Emergency Reports",
-            stats["emergency_reports"]
+            stats["emergency_reports"],
         )
 
     with col2:
         st.metric(
             "Incidents",
-            stats["incidents"]
+            stats["incidents"],
         )
 
     with col3:
         st.metric(
             "Resources",
-            stats["resources"]
+            stats["resources"],
         )
 
     with col4:
         st.metric(
             "AI Executions",
-            stats["agent_executions"]
+            stats["agent_executions"],
         )
 
     st.divider()
 
-    st.info(
-        "The command center will become the main operational "
-        "dashboard as the RescueMind AI agents are implemented."
-    )
+    st.subheader("Recent Emergency Reports")
 
-    st.subheader("System Architecture")
+    reports = get_emergency_reports(limit=5)
 
-    st.markdown("""
-    **Emergency Report**
-    ↓  
-    **Intake Agent**
-    ↓  
-    **Location Intelligence**
-    ↓  
-    **Duplicate Detection**
-    ↓  
-    **Severity Assessment**
-    ↓  
-    **Resource Matching**
-    ↓  
-    **Response Planning**
-    ↓  
-    **Human Approval**
-    ↓  
-    **Resource Assignment**
-    """)
+    if not reports:
+
+        st.info(
+            "No emergency reports have been submitted yet."
+        )
+
+    else:
+
+        for report in reports:
+
+            with st.container(border=True):
+
+                col1, col2, col3 = st.columns(
+                    [2, 2, 1]
+                )
+
+                with col1:
+
+                    st.markdown(
+                        f"**{report['report_id']}**"
+                    )
+
+                    st.write(
+                        report["description"]
+                    )
+
+                with col2:
+
+                    st.write(
+                        f"**Type:** "
+                        f"{report['emergency_type']}"
+                    )
+
+                    st.write(
+                        f"**Location:** "
+                        f"{report['submitted_location'] or 'Not provided'}"
+                    )
+
+                with col3:
+
+                    st.write(
+                        "**Status**"
+                    )
+
+                    st.warning(
+                        report["processing_status"]
+                    )
 
 
-# --------------------------------------------------
+# ==================================================
 # EMERGENCY REPORTS
-# --------------------------------------------------
+# ==================================================
 
 elif page == "Emergency Reports":
 
-    st.header("📥 Emergency Reports")
+    st.header("📥 Emergency Reporting")
 
     st.write(
-        "Citizen emergency reports will be submitted "
-        "through this module."
+        "Submit a simulated emergency report for "
+        "RescueMind AI analysis."
     )
+
+    st.warning(
+        "This is a hackathon prototype. Do not use "
+        "this application as a substitute for real "
+        "emergency services."
+    )
+
+    st.divider()
+
+    # ----------------------------------------------
+    # REPORT FORM
+    # ----------------------------------------------
 
     with st.form("emergency_report_form"):
 
         emergency_type = st.selectbox(
             "Emergency Type",
-            EMERGENCY_TYPES
+            EMERGENCY_TYPES,
         )
 
         description = st.text_area(
-            "Emergency Description",
+            "Emergency Description *",
             placeholder=(
-                "Example: Water is rapidly entering houses "
-                "near the main road..."
-            )
+                "Example: Heavy flooding is entering "
+                "homes near the main road. Several "
+                "people may be trapped."
+            ),
+            height=150,
         )
 
         location = st.text_input(
-            "Reported Location",
-            placeholder="Address or landmark"
+            "Location / Landmark *",
+            placeholder=(
+                "Example: Main Road near City Hospital"
+            ),
+        )
+
+        st.markdown("### Optional Reporter Information")
+
+        col1, col2 = st.columns(2)
+
+        with col1:
+
+            reporter_name = st.text_input(
+                "Reporter Name"
+            )
+
+        with col2:
+
+            reporter_contact = st.text_input(
+                "Reporter Contact"
+            )
+
+        st.markdown("### Evidence")
+
+        evidence_file = st.file_uploader(
+            "Upload an emergency image",
+            type=[
+                "jpg",
+                "jpeg",
+                "png",
+                "webp",
+            ],
+        )
+
+        st.caption(
+            "Images are treated as submitted evidence. "
+            "AI interpretation will require verification."
         )
 
         submitted = st.form_submit_button(
-            "Submit Emergency Report"
+            "🚨 Submit Emergency Report",
+            use_container_width=True,
         )
 
         if submitted:
 
+            # --------------------------------------
+            # VALIDATION
+            # --------------------------------------
+
+            errors = []
+
             if not description.strip():
 
-                st.error(
-                    "Please provide an emergency description."
+                errors.append(
+                    "Emergency description is required."
                 )
+
+            if not location.strip():
+
+                errors.append(
+                    "Location or landmark is required."
+                )
+
+            if errors:
+
+                for error in errors:
+
+                    st.error(error)
 
             else:
 
+                # ----------------------------------
+                # EVIDENCE PROCESSING
+                # ----------------------------------
+
+                evidence_file_name = None
+                evidence_file_type = None
+                evidence_data = None
+
+                if evidence_file:
+
+                    evidence_file_name = (
+                        evidence_file.name
+                    )
+
+                    evidence_file_type = (
+                        evidence_file.type
+                    )
+
+                    evidence_data = (
+                        evidence_file.getvalue()
+                    )
+
+                # ----------------------------------
+                # SAVE REPORT
+                # ----------------------------------
+
+                report_id = save_emergency_report(
+                    description=description.strip(),
+                    emergency_type=emergency_type,
+                    reported_time=datetime.now().isoformat(),
+                    location=location.strip(),
+                    reporter_name=(
+                        reporter_name.strip()
+                        if reporter_name
+                        else None
+                    ),
+                    reporter_contact=(
+                        reporter_contact.strip()
+                        if reporter_contact
+                        else None
+                    ),
+                    evidence_file_name=(
+                        evidence_file_name
+                    ),
+                    evidence_file_type=(
+                        evidence_file_type
+                    ),
+                    evidence_data=evidence_data,
+                )
+
                 st.success(
-                    "Report validation successful. "
-                    "AI intake processing will be added next."
+                    "Emergency report submitted successfully!"
+                )
+
+                st.markdown(
+                    f"### Report ID: `{report_id}`"
+                )
+
+                st.info(
+                    "Your report is now waiting for "
+                    "AI analysis. No operational action "
+                    "has been taken."
                 )
 
 
-# --------------------------------------------------
+# ==================================================
 # INCIDENTS
-# --------------------------------------------------
+# ==================================================
 
 elif page == "Incidents":
 
     st.header("🚨 Incident Management")
 
     st.info(
-        "Incident creation, duplicate detection, "
-        "severity assessment, and approval workflow "
-        "will be implemented in the upcoming phases."
+        "Reports will become structured incidents "
+        "after the AI analysis pipeline is implemented."
     )
 
-    st.write("Available statuses:")
+    st.write("Incident workflow:")
 
     for status in INCIDENT_STATUSES:
+
         st.write(f"• {status}")
 
 
-# --------------------------------------------------
+# ==================================================
 # RESOURCES
-# --------------------------------------------------
+# ==================================================
 
 elif page == "Resources":
 
@@ -271,42 +428,42 @@ elif page == "Resources":
     )
 
 
-# --------------------------------------------------
+# ==================================================
 # AI ACTIVITY
-# --------------------------------------------------
+# ==================================================
 
 elif page == "AI Activity":
 
     st.header("🤖 AI Agent Activity")
 
     st.info(
-        "Every AI agent execution will be recorded "
-        "for explainability and auditing."
+        "AI agent execution logging will appear here."
     )
 
-    st.markdown("""
-    Planned agents:
+    agents = [
+        "Emergency Intake Agent",
+        "Location Intelligence Agent",
+        "Duplicate Detection Agent",
+        "Severity Assessment Agent",
+        "Resource Matching Agent",
+        "Response Planning Agent",
+        "Orchestrator",
+    ]
 
-    - 🧾 Emergency Intake Agent
-    - 📍 Location Intelligence Agent
-    - 🔎 Duplicate Detection Agent
-    - ⚠️ Severity Assessment Agent
-    - 🚑 Resource Matching Agent
-    - 📋 Response Planning Agent
-    - 🧠 Orchestrator
-    """)
+    for agent in agents:
+
+        st.write(f"• {agent}")
 
 
-# --------------------------------------------------
+# ==================================================
 # AUDIT TRAIL
-# --------------------------------------------------
+# ==================================================
 
 elif page == "Audit Trail":
 
     st.header("📜 Audit Trail")
 
     st.info(
-        "Human approvals, AI recommendations, "
-        "status changes, and resource assignments "
-        "will be recorded here."
+        "System actions and human approvals will "
+        "appear here."
     )
