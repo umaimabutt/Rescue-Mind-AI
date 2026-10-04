@@ -396,5 +396,39 @@ def add_audit_log(
         datetime.utcnow().isoformat(),
     ))
 
+        # --------------------------------------------------
+    # DATABASE MIGRATION
+    # --------------------------------------------------
+    # Adds columns that may be missing from an older
+    # RescueMind database created before Phase 3.
+
+    cursor.execute(
+        "PRAGMA table_info(emergency_reports)"
+    )
+
+    existing_columns = {
+        row["name"]
+        for row in cursor.fetchall()
+    }
+
+    new_columns = {
+        "evidence_file_name": "TEXT",
+        "evidence_file_type": "TEXT",
+        "evidence_data": "BLOB",
+        "processing_status": "TEXT DEFAULT 'Pending AI Analysis'",
+        "transcription_confidence": "REAL",
+    }
+
+    for column_name, column_type in new_columns.items():
+
+        if column_name not in existing_columns:
+
+            cursor.execute(
+                f"""
+                ALTER TABLE emergency_reports
+                ADD COLUMN {column_name} {column_type}
+                """
+            )
+
     connection.commit()
     connection.close()
