@@ -7,13 +7,15 @@ from config import (
     INCIDENT_STATUSES,
     EMERGENCY_TYPES,
 )
-
 from database import (
     initialize_database,
     get_database_stats,
     get_emergency_reports,
     save_emergency_report,
+    add_audit_log
 )
+
+initialize_database()
 
 
 # ==================================================
