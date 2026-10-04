@@ -3,9 +3,10 @@ import streamlit as st
 
 
 APP_NAME = "RescueMind AI"
-APP_VERSION = "1.0.0"
+APP_VERSION = "2.0.0"
 
 DATABASE_FILE = "rescuemind.db"
+
 
 INCIDENT_STATUSES = [
     "Pending",
@@ -16,6 +17,7 @@ INCIDENT_STATUSES = [
     "Resolved",
 ]
 
+
 EMERGENCY_TYPES = [
     "Flood",
     "Earthquake",
@@ -24,6 +26,7 @@ EMERGENCY_TYPES = [
     "Medical Emergency",
     "Other",
 ]
+
 
 SEVERITY_LEVELS = [
     "Critical",
@@ -34,16 +37,22 @@ SEVERITY_LEVELS = [
 ]
 
 
-def get_groq_api_key():
-    """
-    Safely retrieve the Groq API key from Streamlit Secrets.
-    Falls back to environment variables for local development.
-    """
+# Current Groq text models
+GROQ_TEXT_MODEL = "openai/gpt-oss-20b"
+GROQ_FALLBACK_MODEL = "openai/gpt-oss-120b"
 
+# Groq Whisper model
+GROQ_WHISPER_MODEL = "whisper-large-v3-turbo"
+
+
+def get_groq_api_key():
+
+    # First check Streamlit Secrets
     try:
         if "GROQ_API_KEY" in st.secrets:
             return st.secrets["GROQ_API_KEY"]
     except Exception:
         pass
 
+    # Then check environment variable
     return os.getenv("GROQ_API_KEY")
