@@ -41,9 +41,9 @@ def initialize_database():
     connection = get_connection()
     cursor = connection.cursor()
 
-    # -----------------------------------------------------
+    # =====================================================
     # USERS
-    # -----------------------------------------------------
+    # =====================================================
 
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS users (
@@ -55,9 +55,9 @@ def initialize_database():
         )
     """)
 
-    # -----------------------------------------------------
+    # =====================================================
     # EMERGENCY REPORTS
-    # -----------------------------------------------------
+    # =====================================================
 
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS emergency_reports (
@@ -80,9 +80,9 @@ def initialize_database():
         )
     """)
 
-    # -----------------------------------------------------
+    # =====================================================
     # INCIDENTS
-    # -----------------------------------------------------
+    # =====================================================
 
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS incidents (
@@ -100,9 +100,9 @@ def initialize_database():
         )
     """)
 
-    # -----------------------------------------------------
+    # =====================================================
     # INCIDENT LOCATIONS
-    # -----------------------------------------------------
+    # =====================================================
 
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS incident_locations (
@@ -115,9 +115,9 @@ def initialize_database():
         )
     """)
 
-    # -----------------------------------------------------
+    # =====================================================
     # INCIDENT EVIDENCE
-    # -----------------------------------------------------
+    # =====================================================
 
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS incident_evidence (
@@ -130,9 +130,9 @@ def initialize_database():
         )
     """)
 
-    # -----------------------------------------------------
+    # =====================================================
     # RESOURCES
-    # -----------------------------------------------------
+    # =====================================================
 
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS resources (
@@ -147,9 +147,9 @@ def initialize_database():
         )
     """)
 
-    # -----------------------------------------------------
+    # =====================================================
     # RESOURCE ASSIGNMENTS
-    # -----------------------------------------------------
+    # =====================================================
 
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS resource_assignments (
@@ -162,9 +162,9 @@ def initialize_database():
         )
     """)
 
-    # -----------------------------------------------------
+    # =====================================================
     # AGENT EXECUTIONS
-    # -----------------------------------------------------
+    # =====================================================
 
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS agent_executions (
@@ -179,9 +179,9 @@ def initialize_database():
         )
     """)
 
-    # -----------------------------------------------------
+    # =====================================================
     # INCIDENT HISTORY
-    # -----------------------------------------------------
+    # =====================================================
 
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS incident_history (
@@ -195,9 +195,9 @@ def initialize_database():
         )
     """)
 
-    # -----------------------------------------------------
+    # =====================================================
     # AUDIT LOGS
-    # -----------------------------------------------------
+    # =====================================================
 
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS audit_logs (
@@ -211,7 +211,7 @@ def initialize_database():
     """)
 
     # =====================================================
-    # SAFE MIGRATION FOR OLD DATABASES
+    # SAFE DATABASE MIGRATION
     # =====================================================
 
     cursor.execute("""
@@ -225,50 +225,36 @@ def initialize_database():
 
     migration_columns = {
 
-        "report_id":
-            "TEXT",
+        "report_id": "TEXT",
 
-        "description":
-            "TEXT",
+        "description": "TEXT",
 
-        "emergency_type":
-            "TEXT",
+        "emergency_type": "TEXT",
 
-        "reported_time":
-            "TEXT",
+        "reported_time": "TEXT",
 
-        "submitted_location":
-            "TEXT",
+        "submitted_location": "TEXT",
 
-        "latitude":
-            "REAL",
+        "latitude": "REAL",
 
-        "longitude":
-            "REAL",
+        "longitude": "REAL",
 
-        "reporter_name":
-            "TEXT",
+        "reporter_name": "TEXT",
 
-        "reporter_contact":
-            "TEXT",
+        "reporter_contact": "TEXT",
 
-        "evidence_file_name":
-            "TEXT",
+        "evidence_file_name": "TEXT",
 
-        "evidence_file_type":
-            "TEXT",
+        "evidence_file_type": "TEXT",
 
-        "evidence_data":
-            "BLOB",
+        "evidence_data": "BLOB",
 
         "processing_status":
             "TEXT DEFAULT 'Pending AI Analysis'",
 
-        "transcription_confidence":
-            "REAL",
+        "transcription_confidence": "REAL",
 
-        "created_at":
-            "TEXT"
+        "created_at": "TEXT"
     }
 
     for column_name, column_type in migration_columns.items():
@@ -276,18 +262,16 @@ def initialize_database():
         if column_name not in existing_columns:
 
             try:
+
                 cursor.execute(
                     f"""
                     ALTER TABLE emergency_reports
                     ADD COLUMN {column_name} {column_type}
                     """
                 )
+
             except sqlite3.OperationalError:
                 pass
-
-    # -----------------------------------------------------
-    # SAVE DATABASE
-    # -----------------------------------------------------
 
     connection.commit()
     connection.close()
@@ -399,6 +383,28 @@ def get_emergency_reports(limit=100):
 
 
 # =========================================================
+# GET SINGLE EMERGENCY REPORT
+# =========================================================
+
+def get_emergency_report(report_id):
+
+    connection = get_connection()
+    cursor = connection.cursor()
+
+    cursor.execute("""
+        SELECT *
+        FROM emergency_reports
+        WHERE report_id = ?
+    """, (report_id,))
+
+    report = cursor.fetchone()
+
+    connection.close()
+
+    return report
+
+
+# =========================================================
 # DATABASE STATISTICS
 # =========================================================
 
@@ -407,7 +413,9 @@ def get_database_stats():
     connection = get_connection()
     cursor = connection.cursor()
 
+    # -----------------------------------------------------
     # Emergency reports
+    # -----------------------------------------------------
 
     cursor.execute("""
         SELECT COUNT(*) AS count
@@ -416,7 +424,9 @@ def get_database_stats():
 
     total_reports = cursor.fetchone()["count"]
 
+    # -----------------------------------------------------
     # Incidents
+    # -----------------------------------------------------
 
     cursor.execute("""
         SELECT COUNT(*) AS count
@@ -425,7 +435,9 @@ def get_database_stats():
 
     total_incidents = cursor.fetchone()["count"]
 
+    # -----------------------------------------------------
     # Resources
+    # -----------------------------------------------------
 
     cursor.execute("""
         SELECT COUNT(*) AS count
@@ -434,7 +446,9 @@ def get_database_stats():
 
     total_resources = cursor.fetchone()["count"]
 
+    # -----------------------------------------------------
     # Pending reports
+    # -----------------------------------------------------
 
     cursor.execute("""
         SELECT COUNT(*) AS count
@@ -447,11 +461,172 @@ def get_database_stats():
     connection.close()
 
     return {
-        "reports": total_reports,
+        "emergency_reports": total_reports,
         "incidents": total_incidents,
         "resources": total_resources,
-        "pending": pending_reports
+        "pending_reports": pending_reports
     }
+
+
+# =========================================================
+# UPDATE REPORT STATUS
+# =========================================================
+
+def update_report_status(
+    report_id,
+    new_status
+):
+
+    connection = get_connection()
+    cursor = connection.cursor()
+
+    cursor.execute("""
+        UPDATE emergency_reports
+        SET processing_status = ?
+        WHERE report_id = ?
+    """, (
+        new_status,
+        report_id
+    ))
+
+    connection.commit()
+    connection.close()
+
+
+# =========================================================
+# CREATE INCIDENT
+# =========================================================
+
+def create_incident(
+    title,
+    description,
+    emergency_type,
+    severity="Unknown",
+    status="Pending",
+    source_report_id=None,
+    ai_summary=None
+):
+
+    connection = get_connection()
+    cursor = connection.cursor()
+
+    incident_id = generate_incident_id()
+
+    cursor.execute("""
+        INSERT INTO incidents (
+            incident_id,
+            title,
+            description,
+            emergency_type,
+            severity,
+            status,
+            source_report_id,
+            ai_summary
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    """, (
+        incident_id,
+        title,
+        description,
+        emergency_type,
+        severity,
+        status,
+        source_report_id,
+        ai_summary
+    ))
+
+    connection.commit()
+    connection.close()
+
+    return incident_id
+
+
+# =========================================================
+# GET INCIDENTS
+# =========================================================
+
+def get_incidents(limit=100):
+
+    connection = get_connection()
+    cursor = connection.cursor()
+
+    cursor.execute("""
+        SELECT *
+        FROM incidents
+        ORDER BY id DESC
+        LIMIT ?
+    """, (limit,))
+
+    incidents = cursor.fetchall()
+
+    connection.close()
+
+    return incidents
+
+
+# =========================================================
+# ADD RESOURCE
+# =========================================================
+
+def add_resource(
+    resource_name,
+    resource_type,
+    quantity,
+    location,
+    available_quantity=None,
+    status="Available"
+):
+
+    connection = get_connection()
+    cursor = connection.cursor()
+
+    if available_quantity is None:
+        available_quantity = quantity
+
+    cursor.execute("""
+        INSERT INTO resources (
+            resource_name,
+            resource_type,
+            quantity,
+            available_quantity,
+            location,
+            status
+        )
+        VALUES (?, ?, ?, ?, ?, ?)
+    """, (
+        resource_name,
+        resource_type,
+        quantity,
+        available_quantity,
+        location,
+        status
+    ))
+
+    connection.commit()
+    connection.close()
+
+
+# =========================================================
+# GET RESOURCES
+# =========================================================
+
+def get_resources(limit=100):
+
+    connection = get_connection()
+    cursor = connection.cursor()
+
+    cursor.execute("""
+        SELECT *
+        FROM resources
+        ORDER BY id DESC
+        LIMIT ?
+    """, (limit,))
+
+    resources = cursor.fetchall()
+
+    connection.close()
+
+    return resources
 
 
 # =========================================================
@@ -485,3 +660,33 @@ def add_audit_log(
 
     connection.commit()
     connection.close()
+
+
+# =========================================================
+# GET AUDIT LOGS
+# =========================================================
+
+def get_audit_logs(limit=100):
+
+    connection = get_connection()
+    cursor = connection.cursor()
+
+    cursor.execute("""
+        SELECT *
+        FROM audit_logs
+        ORDER BY id DESC
+        LIMIT ?
+    """, (limit,))
+
+    logs = cursor.fetchall()
+
+    connection.close()
+
+    return logs
+
+
+# =========================================================
+# START DATABASE
+# =========================================================
+
+initialize_database()
