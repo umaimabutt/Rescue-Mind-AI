@@ -396,11 +396,25 @@ def add_audit_log(
         datetime.utcnow().isoformat(),
     ))
 
-        # --------------------------------------------------
+      # --------------------------------------------------
+    # AUDIT LOG
+    # --------------------------------------------------
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS audit_logs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            action TEXT NOT NULL,
+            entity_type TEXT,
+            entity_id TEXT,
+            performed_by TEXT,
+            details TEXT,
+            created_at TEXT NOT NULL
+        )
+    """)
+
+    # --------------------------------------------------
     # DATABASE MIGRATION
     # --------------------------------------------------
-    # Adds columns that may be missing from an older
-    # RescueMind database created before Phase 3.
 
     cursor.execute(
         "PRAGMA table_info(emergency_reports)"
